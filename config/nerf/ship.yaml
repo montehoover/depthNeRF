@@ -1,0 +1,11 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment:
+  expname: ship
+
+dataset:
+  datadir: ./data/nerf_synthetic/ship
+  blendr:
+    half_res: true

@@ -1,0 +1,11 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment:
+  expname: ficus
+
+dataset:
+  datadir: ./data/nerf_synthetic/ficus
+  blendr:
+    half_res: true

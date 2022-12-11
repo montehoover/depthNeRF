@@ -1,0 +1,72 @@
+defaults:
+  - _self_
+
+experiment:
+  expname: ???
+
+training:
+  # training:
+  netdepth: 8
+  netwidth: 256
+  netdepth_fine: 8
+  netwidth_fine: 256
+  N_rand: 4096      # 32*32*4
+  lrate: 5e-4
+  lrate_decay: 250
+  chunk: 32768      # 1024*32
+  netchunk: 65536   # 1024*64
+  no_batching: false
+  no_reload: false
+  ft_path: ???
+
+  # training (part 2)
+  precrop_iters: 0
+  precrop_frac: 0.5
+
+rendering:
+  # rendering
+  N_samples: 64
+  N_importance: 0
+  perturb: 1.
+  use_viewdirs: true
+  i_embed: 0
+  multires: 10
+  multires_views: 4
+  raw_noise_std: 0
+
+dataset:
+  # dataset
+  dataset_type: ???
+  datadir: ???
+  testskip: 8
+
+  # blendr
+  blendr:
+    white_bkgd: false
+    half_res: false
+
+  # deepvoxels
+  deepvoxels:
+    shape: ???
+    # shape: 'greek'
+
+  # llff
+  llff:
+    factor: ???
+    no_ndc: false
+    lindisp: false
+    spherify: false
+    llffhold: ???
+    # factor: 8
+    # no_ndc: false
+    # lindisp: false
+    # spherify: false
+    # llffhold: 8
+
+logging:
+  # logging/saving
+  i_print: 100
+  i_img: 500
+  i_weights: 10000
+  i_testset: 50000
+  i_video: 50000

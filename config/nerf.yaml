@@ -1,0 +1,15 @@
+defaults:
+  - nerf: nerf_lego
+  - _self_
+
+device: cuda
+basedir: './outputs/nerf'
+
+rendering:
+  scale: -1
+
+nerf:
+  rendering:
+    render_only: true
+    render_test: false
+    render_factor: 0

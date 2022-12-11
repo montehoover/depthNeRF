@@ -1,0 +1,11 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment:
+  expname: mic
+
+dataset:
+  datadir: ./data/nerf_synthetic/mic
+  blendr:
+    half_res: true

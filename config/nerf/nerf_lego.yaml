@@ -1,0 +1,11 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment:
+  expname: lego
+
+dataset:
+  datadir: ./data/nerf_synthetic/lego
+  blendr:
+    half_res: true

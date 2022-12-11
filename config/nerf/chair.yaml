@@ -1,0 +1,11 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment:
+  expname: chair
+
+dataset:
+  datadir: ./data/nerf_synthetic/chair
+  blendr:
+    half_res: true

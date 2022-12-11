@@ -1,0 +1,11 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment:
+  expname: drums
+
+dataset:
+  datadir: ./data/nerf_synthetic/drums
+  blendr:
+    half_res: true
