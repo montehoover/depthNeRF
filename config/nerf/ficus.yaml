@@ -2,8 +2,7 @@ defaults:
   - _base_blendr
   - _self_
 
-experiment:
-  expname: ficus
+experiment: ficus
 
 dataset:
   datadir: ./data/nerf_synthetic/ficus

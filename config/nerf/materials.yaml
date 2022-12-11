@@ -2,8 +2,7 @@ defaults:
   - _base_llff
   - _self_
 
-experiment:
-  expname: materials
+experiment: materials
 
 dataset:
   datadir: ./data/nerf_llff_data/materials

@@ -2,8 +2,7 @@ defaults:
   - _base_llff
   - _self_
 
-experiment:
-  expname: fern
+experiment: fern
 
 dataset:
   datadir: ./data/nerf_llff_data/fern

@@ -2,8 +2,7 @@ defaults:
   - _base_blendr
   - _self_
 
-experiment:
-  expname: mic
+experiment: mic
 
 dataset:
   datadir: ./data/nerf_synthetic/mic

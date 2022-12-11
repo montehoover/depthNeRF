@@ -2,8 +2,7 @@ defaults:
   - _base_blendr
   - _self_
 
-experiment:
-  expname: drums
+experiment: drums
 
 dataset:
   datadir: ./data/nerf_synthetic/drums

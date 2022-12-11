@@ -2,8 +2,7 @@ defaults:
   - _base_blendr
   - _self_
 
-experiment:
-  expname: chair
+experiment: chair
 
 dataset:
   datadir: ./data/nerf_synthetic/chair

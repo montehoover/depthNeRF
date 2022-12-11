@@ -1,24 +1,30 @@
-import os, sys
-import numpy as np
-import imageio
-# import json
-# import random
-import time
-import torch
-# import torch.nn as nn
-import torch.nn.functional as F
-from tqdm import tqdm, trange
-
-import matplotlib.pyplot as plt
-
+import itertools
 import logging
 from pathlib import Path
 
+# import cv2
+import imageio
 import hydra
-# from hydra.core.hydra_config import HydraConfig
-from omegaconf import DictConfig, OmegaConf
+import numpy as np
+import torch
+from hydra.core.hydra_config import HydraConfig
+from omegaconf import OmegaConf, DictConfig
+from torch import Tensor
+import torch.nn.functional as F
+from tqdm import tqdm, trange
 
-from aris.integrator.nerf import *
+import os, sys
+import time
+
+import matplotlib.pyplot as plt
+
+from aris.core.io import build_integrator
+from aris.integrator import Integrator
+# from aris.utils.image_utils import save_image, tonemap_image
+# from aris.utils.render_utils import get_coords_multisample
+
+from aris.utils.nerf.run_helpers import get_rays                    # general
+from aris.utils.nerf.run_helpers import img2mse, mse2psnr, to8b     # metrics
 
 from aris.utils.nerf.load_llff import load_llff_data
 from aris.utils.nerf.load_deepvoxels import load_dv_data
@@ -26,16 +32,17 @@ from aris.utils.nerf.load_blender import load_blender_data
 from aris.utils.nerf.load_LINEMOD import load_LINEMOD_data
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-np.random.seed(0)
-DEBUG = False
 logger = logging.getLogger(__name__)
+window_name = "main"
+np.random.seed(0)
 
 
 
-# TODO: fix config hierarchy
 @hydra.main(version_base=None, config_path="config", config_name="nerf")
-def train(cfg: DictConfig = None):
+def main(cfg: HydraConfig = None):
+    if cfg.device == 'cuda':
+        assert torch.cuda.is_available(), "CUDA GPU is not available (try device=cpu)"
+
     # save everything to out_dir
     # out_dir = Path(HydraConfig().get().run.dir)
     out_dir = cfg.basedir
@@ -46,9 +53,6 @@ def train(cfg: DictConfig = None):
     with open(out_dir + "/config.yaml", mode="w", encoding="utf-8") as f:
         f.write(config_yaml + "\n")
 
-    # parser = config_parser()
-    # args = parser.parse_args()
-
     # Load data
     K = None
     if cfg.nerf.dataset.dataset_type == 'llff':
@@ -57,19 +61,19 @@ def train(cfg: DictConfig = None):
                                                                   spherify=cfg.nerf.dataset.llff.spherify)
         hwf = poses[0,:3,-1]
         poses = poses[:,:3,:4]
-        print('Loaded llff', images.shape, render_poses.shape, hwf, cfg.nerf.dataset.datadir)
+        logger.info(f'Loaded llff {images.shape} {render_poses.shape} {hwf} {cfg.nerf.dataset.datadir}')
         if not isinstance(i_test, list):
             i_test = [i_test]
 
         if cfg.nerf.dataset.llff.spherify > 0:
-            print('Auto LLFF holdout,', cfg.nerf.dataset.llff.spherify)
+            logger.info(f'Auto LLFF holdout, {cfg.nerf.dataset.llff.spherify}')
             i_test = np.arange(images.shape[0])[::cfg.nerf.dataset.llff.spherify]
 
         i_val = i_test
         i_train = np.array([i for i in np.arange(int(images.shape[0])) if
                         (i not in i_test and i not in i_val)])
 
-        print('DEFINING BOUNDS')
+        logger.info('DEFINING BOUNDS')
         if cfg.nerf.dataset.llff.no_ndc:
             near = np.ndarray.min(bds) * .9
             far = np.ndarray.max(bds) * 1.
@@ -77,11 +81,11 @@ def train(cfg: DictConfig = None):
         else:
             near = 0.
             far = 1.
-        print('NEAR FAR', near, far)
+        logger.info(f'NEAR FAR {near} {far}')
 
     elif cfg.nerf.dataset.dataset_type == 'blender':
         images, poses, render_poses, hwf, i_split = load_blender_data(cfg.nerf.dataset.datadir, cfg.nerf.dataset.blendr.half_res, cfg.nerf.dataset.testskip)
-        print('Loaded blender', images.shape, render_poses.shape, hwf, cfg.nerf.dataset.datadir)
+        logger.info(f'Loaded blender {images.shape} {render_poses.shape} {hwf} {cfg.nerf.dataset.datadir}')
         i_train, i_val, i_test = i_split
 
         near = 2.
@@ -94,8 +98,8 @@ def train(cfg: DictConfig = None):
 
     elif cfg.nerf.dataset.dataset_type == 'LINEMOD':
         images, poses, render_poses, hwf, K, i_split, near, far = load_LINEMOD_data(cfg.nerf.dataset.datadir, cfg.nerf.dataset.blendr.cfg.nerf.dataset.blendr.half_res, cfg.dataset.testskip)
-        print(f'Loaded LINEMOD, images shape: {images.shape}, hwf: {hwf}, K: {K}')
-        print(f'[CHECK HERE] near: {near}, far: {far}.')
+        logger.info(f'Loaded LINEMOD, images shape: {images.shape}, hwf: {hwf}, K: {K}')
+        logger.info(f'[CHECK HERE] near: {near}, far: {far}.')
         i_train, i_val, i_test = i_split
 
         if cfg.nerf.dataset.blendr.white_bkgd:
@@ -109,7 +113,7 @@ def train(cfg: DictConfig = None):
                                                                  basedir=cfg.nerf.dataset.datadir,
                                                                  testskip=cfg.nerf.dataset.testskip)
 
-        print('Loaded deepvoxels', images.shape, render_poses.shape, hwf, cfg.nerf.dataset.datadir)
+        logger.info(f'Loaded deepvoxels {images.shape} {render_poses.shape} {hwf} {cfg.nerf.dataset.datadir}')
         i_train, i_val, i_test = i_split
 
         hemi_R = np.mean(np.linalg.norm(poses[:,:3,-1], axis=-1))
@@ -117,10 +121,14 @@ def train(cfg: DictConfig = None):
         far = hemi_R+1.
 
     else:
-        print('Unknown dataset type', cfg.nerf.dataset.dataset_type, 'exiting')
+        logger.error(f'Unknown dataset type {cfg.nerf.dataset.dataset_type}. Exiting.')
         return
 
-    # Cast intrinsics to right types
+
+    # configure the integrator
+    integrator = build_integrator(cfg.integrator)
+
+    # cast intrinsics to right types
     H, W, focal = hwf
     H, W = int(H), int(W)
     hwf = [H, W, focal]
@@ -135,22 +143,21 @@ def train(cfg: DictConfig = None):
     if cfg.nerf.rendering.render_test:
         render_poses = np.array(poses[i_test])
 
+    result = torch.zeros(H, W, 3)
+
+
     # Create log dir and copy the config file
     basedir = cfg.basedir
-    expname = cfg.nerf.experiment.expname
+    expname = cfg.nerf.experiment
     os.makedirs(os.path.join(basedir, expname), exist_ok=True)
     f = os.path.join(basedir, expname, 'cfg.txt')
     with open(f, 'w') as file:
         for arg in sorted(vars(cfg)):
             attr = getattr(cfg, arg)
             file.write('{} = {}\n'.format(arg, attr))
-    # if cfg.config is not None:
-    #     f = os.path.join(basedir, expname, 'config.txt')
-    #     with open(f, 'w') as file:
-    #         file.write(open(cfg.config, 'r').read())
 
     # Create nerf model
-    render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(cfg)
+    render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = integrator.create_nerf(cfg)
     global_step = start
 
     bds_dict = {
@@ -161,26 +168,89 @@ def train(cfg: DictConfig = None):
     render_kwargs_test.update(bds_dict)
 
     # Move testing data to GPU
-    render_poses = torch.Tensor(render_poses).to(device)
+    render_poses = torch.Tensor(render_poses).to(cfg.device)
 
     # Short circuit if only rendering out from trained model
     if cfg.nerf.rendering.render_only:
-        print('RENDER ONLY')
+        logger.info('RENDER ONLY')
         with torch.no_grad():
-            if cfg.nerf.rendering.render_test:
-                # render_test switches to test poses
-                images = images[i_test]
+            if cfg.nerf.rendering.render_video:
+                # render a full video using pre-defined poses
+                if cfg.gui == True:
+                    logger.error("Error: render_video and gui cannot be true at the same time. Continuing without gui.")
+
+                if cfg.nerf.rendering.render_test:
+                    # render_test switches to test poses
+                    images = images[i_test]
+                else:
+                    # default is smoother render_poses path
+                    images = None
+
+                testsavedir = os.path.join(basedir, expname, 'renderonly_{}_{:06d}'.format('test' if cfg.nerf.rendering.render_test else 'path', start))
+                os.makedirs(testsavedir, exist_ok=True)
+                logger.info(f'test poses shape {render_poses.shape}')
+
+                rgbs, _ = integrator.render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=cfg.nerf.rendering.render_factor)
+                logger.info(f'Done rendering {testsavedir}')
+                imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
+
             else:
-                # Default is smoother render_poses path
-                images = None
+                # render a single frame
+                # FIXME
+                raise NotImplementedError("TODO: add rendering for a single image")
+                render_poses = render_poses[0:1]  # FIXME: just one image
+                testsavedir = os.path.join(basedir, expname)
+                os.makedirs(testsavedir, exist_ok=True)
+                logger.info(f'test poses shape {render_poses.shape}')
 
-            testsavedir = os.path.join(basedir, expname, 'renderonly_{}_{:06d}'.format('test' if cfg.nerf.rendering.render_test else 'path', start))
-            os.makedirs(testsavedir, exist_ok=True)
-            print('test poses shape', render_poses.shape)
+                rgbs, _ = integrator.render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=cfg.nerf.rendering.render_factor)
+                logger.info(f'Done rendering {testsavedir}')
 
-            rgbs, _ = render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=cfg.nerf.rendering.render_factor)
-            print('Done rendering', testsavedir)
-            imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
+                # configure the progress bar
+                # bs = cfg.nerf.training.chunk
+                # n_blocks = int(np.ceil(H / bs) * np.ceil(W / bs))
+                # pbar = tqdm(total=n_blocks)
+
+                # show a window that updates every block
+                # if cfg.gui:
+                #     cv2.namedWindow(window_name)
+
+                # render every block
+                # for y, x in itertools.product(range(0, H, bs), range(0, W, bs)):
+                #     b_coords = coords[y:y+bs, x:x+bs]
+                #     b_H, b_W = b_coords.shape[:2]
+                #     try:
+                #         b_colors = render_block(cfg, b_coords.reshape(-1, 2), scene, integrator).view(b_H, b_W, 3)
+                #     except KeyboardInterrupt:
+                #         break
+
+                #     result[y:y+bs, x:x+bs] = b_colors
+                #     pbar.update(1)
+
+                #     if cfg.gui:
+                #         key = cv2.waitKey(1)
+                #         if key == 27:  # esc
+                #             logger.warning("Rendering cancelled by user")
+                #             break
+                #         displayed = np.clip(tonemap_image(result.numpy()), 0, 1)
+                #         cv2.imshow(window_name, cv2.cvtColor(displayed, cv2.COLOR_RGB2BGR))
+
+                #     save_image(out_dir / "output.png", result.numpy(), tonemap=integrator.need_tonemap())
+
+                # if cfg.save_exr:
+                #     write_openexr(out_dir / "output.exr", result, "RGB")
+
+            integrator.on_render_ended()
+
+            # if cfg.gui:
+            #     try:
+            #         while True:
+            #             key = cv2.waitKey(20) & 0xFFFF
+            #             if key == 27:  # esc
+            #                 break
+            #     except KeyboardInterrupt:
+            #         pass
+            #     cv2.destroyAllWindows()
 
             return
 
@@ -189,33 +259,33 @@ def train(cfg: DictConfig = None):
     use_batching = not cfg.nerf.training.no_batching
     if use_batching:
         # For random ray batching
-        print('get rays')
+        logger.info('get rays')
         rays = np.stack([get_rays_np(H, W, K, p) for p in poses[:,:3,:4]], 0) # [N, ro+rd, H, W, 3]
-        print('done, concats')
+        logger.info('done, concats')
         rays_rgb = np.concatenate([rays, images[:,None]], 1) # [N, ro+rd+rgb, H, W, 3]
         rays_rgb = np.transpose(rays_rgb, [0,2,3,1,4]) # [N, H, W, ro+rd+rgb, 3]
         rays_rgb = np.stack([rays_rgb[i] for i in i_train], 0) # train images only
         rays_rgb = np.reshape(rays_rgb, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
         rays_rgb = rays_rgb.astype(np.float32)
-        print('shuffle rays')
+        logger.info('shuffle rays')
         np.random.shuffle(rays_rgb)
 
-        print('done')
+        logger.info('done')
         i_batch = 0
 
     # Move training data to GPU
     if use_batching:
-        images = torch.Tensor(images).to(device)
-    poses = torch.Tensor(poses).to(device)
+        images = torch.Tensor(images).to(cfg.device)
+    poses = torch.Tensor(poses).to(cfg.device)
     if use_batching:
-        rays_rgb = torch.Tensor(rays_rgb).to(device)
+        rays_rgb = torch.Tensor(rays_rgb).to(cfg.device)
 
 
     N_iters = 200000 + 1
-    print('Begin')
-    print('TRAIN views are', i_train)
-    print('TEST views are', i_test)
-    print('VAL views are', i_val)
+    logger.info('Begin')
+    logger.info(f'TRAIN views are {i_train}')
+    logger.info(f'TEST views are {i_test}')
+    logger.info(f'VAL views are {i_val}')
 
     # Summary writers
     # writer = SummaryWriter(os.path.join(basedir, 'summaries', expname))
@@ -233,7 +303,7 @@ def train(cfg: DictConfig = None):
 
             i_batch += N_rand
             if i_batch >= rays_rgb.shape[0]:
-                print("Shuffle data after an epoch!")
+                logger.info("Shuffle data after an epoch!")
                 rand_idx = torch.randperm(rays_rgb.shape[0])
                 rays_rgb = rays_rgb[rand_idx]
                 i_batch = 0
@@ -242,7 +312,7 @@ def train(cfg: DictConfig = None):
             # Random from one image
             img_i = np.random.choice(i_train)
             target = images[img_i]
-            target = torch.Tensor(target).to(device)
+            target = torch.Tensor(target).to(cfg.device)
             pose = poses[img_i, :3,:4]
 
             if N_rand is not None:
@@ -257,7 +327,7 @@ def train(cfg: DictConfig = None):
                             torch.linspace(W//2 - dW, W//2 + dW - 1, 2*dW)
                         ), -1)
                     if i == start:
-                        print(f"[Config] Center cropping of size {2*dH} x {2*dW} is enabled until iter {cfg.nerf.training.precrop_iters}")
+                        logger.info(f"[Config] Center cropping of size {2*dH} x {2*dW} is enabled until iter {cfg.nerf.training.precrop_iters}")
                 else:
                     coords = torch.stack(torch.meshgrid(torch.linspace(0, H-1, H), torch.linspace(0, W-1, W)), -1)  # (H, W, 2)
 
@@ -270,9 +340,9 @@ def train(cfg: DictConfig = None):
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
         #####  Core optimization loop  #####
-        rgb, disp, acc, extras = render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
-                                                verbose=i < 10, retraw=True,
-                                                **render_kwargs_train)
+        rgb, disp, acc, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
+                                                   verbose=i < 10, retraw=True,
+                                                   **render_kwargs_train)
 
         optimizer.zero_grad()
         img_loss = img2mse(rgb, target_s)
@@ -298,7 +368,7 @@ def train(cfg: DictConfig = None):
         ################################
 
         dt = time.time()-time0
-        # print(f"Step: {global_step}, Loss: {loss}, Time: {dt}")
+        # logger.info(f"Step: {global_step}, Loss: {loss}, Time: {dt}")
         #####           end            #####
 
         # Rest is logging
@@ -310,13 +380,13 @@ def train(cfg: DictConfig = None):
                 'network_fine_state_dict': render_kwargs_train['network_fine'].state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }, path)
-            print('Saved checkpoints at', path)
+            logger.info('Saved checkpoints at', path)
 
         if i%cfg.nerf.logging.i_video==0 and i > 0:
             # Turn on testing mode
             with torch.no_grad():
-                rgbs, disps = render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test)
-            print('Done, saving', rgbs.shape, disps.shape)
+                rgbs, disps = integrator.render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test)
+            logger.info('Done, saving', rgbs.shape, disps.shape)
             moviebase = os.path.join(basedir, expname, '{}_spiral_{:06d}_'.format(expname, i))
             imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
             imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps / np.max(disps)), fps=30, quality=8)
@@ -324,17 +394,17 @@ def train(cfg: DictConfig = None):
             if cfg.nerf.rendering.use_viewdirs:
                 render_kwargs_test['c2w_staticcam'] = render_poses[0][:3,:4]
                 with torch.no_grad():
-                    rgbs_still, _ = render_path(render_poses, hwf, cfg.nerf.training.chunk, render_kwargs_test)
+                    rgbs_still, _ = integrator.render_path(render_poses, hwf, cfg.nerf.training.chunk, render_kwargs_test)
                 render_kwargs_test['c2w_staticcam'] = None
                 imageio.mimwrite(moviebase + 'rgb_still.mp4', to8b(rgbs_still), fps=30, quality=8)
 
         if i%cfg.nerf.logging.i_testset==0 and i > 0:
             testsavedir = os.path.join(basedir, expname, 'testset_{:06d}'.format(i))
             os.makedirs(testsavedir, exist_ok=True)
-            print('test poses shape', poses[i_test].shape)
+            logger.info('test poses shape', poses[i_test].shape)
             with torch.no_grad():
-                render_path(torch.Tensor(poses[i_test]).to(device), hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
-            print('Saved test set')
+                integrator.render_path(torch.Tensor(poses[i_test]).to(cfg.device), hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
+            logger.info('Saved test set')
 
 
 
@@ -359,7 +429,7 @@ def train(cfg: DictConfig = None):
                 target = images[img_i]
                 pose = poses[img_i, :3,:4]
                 with torch.no_grad():
-                    rgb, disp, acc, extras = render(H, W, focal, chunk=cfg.nerf.training.chunk, c2w=pose,
+                    rgb, disp, acc, extras = integrator.render(H, W, focal, chunk=cfg.nerf.training.chunk, c2w=pose,
                                                         **render_kwargs_test)
 
                 psnr = mse2psnr(img2mse(rgb, target))
@@ -388,4 +458,4 @@ def train(cfg: DictConfig = None):
 if __name__=='__main__':
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-    train()
+    main()

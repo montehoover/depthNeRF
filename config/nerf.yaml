@@ -1,15 +1,17 @@
 defaults:
   - nerf: nerf_lego
+  - integrator: nerf
   - _self_
 
 device: cuda
 basedir: './outputs/nerf'
 
 rendering:
-  scale: -1
+  scale: -1             # (TODO: remove?)
 
 nerf:
   rendering:
-    render_only: true
-    render_test: false
-    render_factor: 0
+    render_only: true   # just render, don't train
+    render_video: true  # render a video of preset poses
+    render_test: false  # render sparse test sequence video
+    render_factor: 0    # render downsampling (TODO: remove?)

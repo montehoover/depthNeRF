@@ -92,7 +92,7 @@ Verify your basic setup by rending the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.experiment.expname=lego_test \
+  nerf.experiment=lego_test \
   nerf.rendering.render_only=true
 ```
 

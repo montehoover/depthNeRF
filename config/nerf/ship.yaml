@@ -2,8 +2,7 @@ defaults:
   - _base_blendr
   - _self_
 
-experiment:
-  expname: ship
+experiment: ship
 
 dataset:
   datadir: ./data/nerf_synthetic/ship

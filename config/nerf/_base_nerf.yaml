@@ -1,11 +1,9 @@
 defaults:
   - _self_
 
-experiment:
-  expname: ???
+experiment: ???
 
 training:
-  # training:
   netdepth: 8
   netwidth: 256
   netdepth_fine: 8
@@ -19,12 +17,10 @@ training:
   no_reload: false
   ft_path: ???
 
-  # training (part 2)
   precrop_iters: 0
   precrop_frac: 0.5
 
 rendering:
-  # rendering
   N_samples: 64
   N_importance: 0
   perturb: 1.
@@ -35,36 +31,25 @@ rendering:
   raw_noise_std: 0
 
 dataset:
-  # dataset
   dataset_type: ???
   datadir: ???
   testskip: 8
 
-  # blendr
   blendr:
     white_bkgd: false
     half_res: false
 
-  # deepvoxels
   deepvoxels:
-    shape: ???
-    # shape: 'greek'
+    shape: ???  # 'greek'
 
-  # llff
   llff:
     factor: ???
     no_ndc: false
     lindisp: false
     spherify: false
     llffhold: ???
-    # factor: 8
-    # no_ndc: false
-    # lindisp: false
-    # spherify: false
-    # llffhold: 8
 
 logging:
-  # logging/saving
   i_print: 100
   i_img: 500
   i_weights: 10000
