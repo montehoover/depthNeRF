@@ -22,7 +22,7 @@ git clone https://github.com/montehoover/cmsc-740-project
 You have two options:
   1. Follow the directions listed in the [nerf-pytorch][nerf] and [aris][aris]
      getting started documentation, managing your environment with `conda`.
-  2. Use pre-made [docker container][docker] with `singularity pull docker://leesharma/aris:2.0.0`.
+  2. Use pre-made [docker container][docker] with `singularity pull docker://leesharma/nerf-aris:2.0.0`.
 
   [nerf]: https://github.com/yenchenlin/nerf-pytorch
   [aris]: https://cmsc740-fall22.github.io/assignment1.md.html
