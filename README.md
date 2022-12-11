@@ -1,3 +1,8 @@
+![custom rendered lego truck](docs/output_rgb.png)
+![custom rendered lego truck](docs/output_disp.png)
+
+([Video to a dinosaur video rendering](docs/horns.mp4))
+
 # Getting Started
 
 1. Download aris-nerf
@@ -9,7 +14,7 @@
 ## 1. Download this repository
 
 ```
-git clone ???
+git clone https://github.com/montehoover/cmsc-740-project
 ```
 
 ## 2. Environment Setup
