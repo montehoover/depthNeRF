@@ -37,7 +37,7 @@ GPU---no distributed training.
 (See [class instructions][aris] for more details)
 
 1. Download data from [Google Drive](https://drive.google.com/file/d/1E4bdOgKh4r8o94plEn68HpNRod1W9wMd/view?usp=sharing)
-2. Put the data in `.data/`. Your folder structure should look like this:
+2. Put the data in `data/`. Your folder structure should look like this:
 
     ```
     .vscode/
@@ -54,7 +54,7 @@ GPU---no distributed training.
 ## 4. Download NeRF data
 
 1. Download desired datasets [here](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1)
-   and save them to the `./data` folder. Alternatively, do the same with the data
+   and save them to the `data/` folder. Alternatively, do the same with the data
    in the (much smaller) nerf_example_data.zip file. Your directory structure should look
    something like this after download:
 
@@ -131,7 +131,7 @@ python render_volume.py nerf fern \
 
 The outputs will be written to `outputs/nerf/fern_test/output_{rgb,disp}.py`.
 
-Check out `./outputs/nerf` for a full list of the available pretrained models.
+Check out `outputs/nerf/` for a full list of the available pretrained models.
 
 ## Rendering a Specified Pose
 
