@@ -1,9 +1,14 @@
+# NeRF-Aris
+
+The goals of this code is to (a) implement volumentric rendering and NeRF training
+in Aris, and (b) modify that training code to incorporate depth groundtruth.
+
 ![custom rendered lego truck](docs/output_rgb.png)
 ![custom rendered lego truck](docs/output_disp.png)
 
 ([Video to a dinosaur video rendering](docs/horns.mp4))
 
-# Getting Started
+## Getting Started
 
 1. Download aris-nerf
 2. Set up your environment
@@ -11,13 +16,13 @@
 4. Download nerf data
 5. Verify setup
 
-## 1. Download this repository
+#### 1. Download this repository
 
 ```
 git clone https://github.com/montehoover/cmsc-740-project
 ```
 
-## 2. Environment Setup
+#### 2. Environment Setup
 
 You have two options:
   1. Follow the directions listed in the [nerf-pytorch][nerf] and [aris][aris]
@@ -32,7 +37,7 @@ I strongly suggest running these codes on a device with a GPU (and remember to
 use `--nv` if you use the container approach.) It's currently set to use a single
 GPU---no distributed training.
 
-## 3. Download Aris data
+#### 3. Download Aris data
 
 (See [class instructions][aris] for more details)
 
@@ -51,7 +56,7 @@ GPU---no distributed training.
     (...other files)
     ```
 
-## 4. Download NeRF data
+#### 4. Download NeRF data
 
 1. Download desired datasets [here](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1)
    and save them to the `data/` folder. Alternatively, do the same with the data
@@ -93,7 +98,7 @@ GPU---no distributed training.
     (...other files)
     ```
 
-## 5. Verify
+#### 5. Verify
 
 Verify your basic setup by rending the lego scene:
 
@@ -117,7 +122,7 @@ epochs (on my system, that's every ~20 mins on this dataset.)
 See below for more details on rendering and training.
 
 
-# Rendering
+## Rendering
 
 The pre-trained models are stored in directories with `_test` suffixes to
 deter overwriting. These are great for testing rendering without training.
@@ -133,7 +138,7 @@ The outputs will be written to `outputs/nerf/fern_test/output_{rgb,disp}.py`.
 
 Check out `outputs/nerf/` for a full list of the available pretrained models.
 
-## Rendering a Specified Pose
+### Rendering a Specified Pose
 
 You can customize your camera position by passing in the `nerf.rendering.pose`
 items in the command line. There are three spherical coords: theta, phi, and r.
@@ -148,7 +153,7 @@ python render_volume.py nerf=nerf_lego \
   nerf.rendering.pose.radius 3
 ```
 
-## Rendering a Video
+### Rendering a Video
 
 To get a better idea of how the volume looks at different angles, you can also
 render a full rotation video with a pre-set trajectory (as included in
@@ -161,12 +166,12 @@ python render_volume.py nerf=nerf_lego \
   nerf.rendering.render_video true
 ```
 
-## Interactive Display
+### Interactive Display
 
 TODO (gui=true) --- can't test on my system
 
 
-# Training
+## Training
 
 Training is easy---just use set the `rendering.render_only` property to false!
 Logs will be saved at `outputs/nerf/$EXPERIMENT_NAME` every 10k epochs by default.
@@ -178,3 +183,9 @@ python render_volume.py nerf chair \
 ```
 
 (TODO: add more config details)
+
+## Authors
+
+This project was put together by Lee Sharma and Monte Hoover based on existing
+work at [nerf-pytorch](https://github.com/yenchenlin/nerf-pytorch) and
+[aris](https://github.com/CMSC740-Fall22/aris-renderer-student).
