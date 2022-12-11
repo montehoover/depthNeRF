@@ -1,0 +1,8 @@
+defaults:
+  - _base_llff
+  - _self_
+
+experiment: room
+
+dataset:
+  datadir: ./data/nerf_llff_data/room

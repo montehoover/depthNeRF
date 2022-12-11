@@ -1,0 +1,27 @@
+defaults:
+  - _base_nerf
+  - _self_
+
+training:
+  no_batching: true
+  lrate_decay: 500
+  N_rand: 1024
+
+  precrop_iters: 500
+  precrop_frac: 0.5
+  ft_path: None
+
+rendering:
+  N_samples: 64
+  N_importance: 128
+
+  pose:
+    theta: 30.
+    phi:  -30.
+    radius: 4.
+
+dataset:
+  dataset_type: blender
+  blendr:
+    white_bkgd: true
+    half_res: false

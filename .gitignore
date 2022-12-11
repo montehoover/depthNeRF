@@ -4,3 +4,5 @@ outputs/
 data/
 .DS_Store
 .vscode/launch.json
+run.*
+pbs-logs

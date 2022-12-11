@@ -1,0 +1,8 @@
+defaults:
+  - _base_llff
+  - _self_
+
+experiment: leaves
+
+dataset:
+  datadir: ./data/nerf_llff_data/leaves
