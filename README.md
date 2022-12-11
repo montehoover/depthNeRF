@@ -5,8 +5,7 @@ in Aris, and (b) modify that training code to incorporate depth groundtruth.
 
 ![custom rendered lego truck](docs/output_rgb.png)
 ![custom rendered lego truck](docs/output_disp.png)
-
-([Video to a dinosaur video rendering](docs/horns.mp4))
+![dinosaur gif](docs/horns.gif)
 
 ## Getting Started
 
