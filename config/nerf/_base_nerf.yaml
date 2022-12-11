@@ -29,6 +29,10 @@ rendering:
   multires: 10
   multires_views: 4
   raw_noise_std: 0
+  pose:
+      theta: ???
+      phi: ???
+      radius: ???
 
 dataset:
   dataset_type: ???

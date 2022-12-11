@@ -1,6 +1,4 @@
-import itertools
 import logging
-from pathlib import Path
 
 # import cv2
 import imageio
@@ -8,7 +6,7 @@ import hydra
 import numpy as np
 import torch
 from hydra.core.hydra_config import HydraConfig
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 from torch import Tensor
 import torch.nn.functional as F
 from tqdm import tqdm, trange
@@ -25,6 +23,7 @@ from aris.integrator import Integrator
 
 from aris.utils.nerf.run_helpers import get_rays                    # general
 from aris.utils.nerf.run_helpers import img2mse, mse2psnr, to8b     # metrics
+from aris.utils.nerf.run_helpers import pose_spherical              # spherical coords to rot
 
 from aris.utils.nerf.load_llff import load_llff_data
 from aris.utils.nerf.load_deepvoxels import load_dv_data
@@ -42,6 +41,7 @@ np.random.seed(0)
 def main(cfg: HydraConfig = None):
     if cfg.device == 'cuda':
         assert torch.cuda.is_available(), "CUDA GPU is not available (try device=cpu)"
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
     # save everything to out_dir
     # out_dir = Path(HydraConfig().get().run.dir)
@@ -195,62 +195,26 @@ def main(cfg: HydraConfig = None):
                 imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
             else:
-                # render a single frame
-                # FIXME
-                raise NotImplementedError("TODO: add rendering for a single image")
-                render_poses = render_poses[0:1]  # FIXME: just one image
+                # print(render_poses[10,:,:])
+
+                # TODO: determine appropriate poses for other datasets
+
+                theta = cfg.nerf.rendering.pose.theta
+                phi = cfg.nerf.rendering.pose.phi
+                r = cfg.nerf.rendering.pose.radius
+                logger.info(f'rendering pose (theta={theta}, phi={phi}, r={r})')
+
+                render_pose = pose_spherical(theta, phi, r).view(1,4,4)
                 testsavedir = os.path.join(basedir, expname)
                 os.makedirs(testsavedir, exist_ok=True)
-                logger.info(f'test poses shape {render_poses.shape}')
+                logger.info(f'pose shape {render_pose.shape}')
 
-                rgbs, _ = integrator.render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=cfg.nerf.rendering.render_factor)
+                rgbs, _ = integrator.render_path(render_pose, hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=cfg.nerf.rendering.render_factor)
                 logger.info(f'Done rendering {testsavedir}')
 
-                # configure the progress bar
-                # bs = cfg.nerf.training.chunk
-                # n_blocks = int(np.ceil(H / bs) * np.ceil(W / bs))
-                # pbar = tqdm(total=n_blocks)
-
-                # show a window that updates every block
-                # if cfg.gui:
-                #     cv2.namedWindow(window_name)
-
-                # render every block
-                # for y, x in itertools.product(range(0, H, bs), range(0, W, bs)):
-                #     b_coords = coords[y:y+bs, x:x+bs]
-                #     b_H, b_W = b_coords.shape[:2]
-                #     try:
-                #         b_colors = render_block(cfg, b_coords.reshape(-1, 2), scene, integrator).view(b_H, b_W, 3)
-                #     except KeyboardInterrupt:
-                #         break
-
-                #     result[y:y+bs, x:x+bs] = b_colors
-                #     pbar.update(1)
-
-                #     if cfg.gui:
-                #         key = cv2.waitKey(1)
-                #         if key == 27:  # esc
-                #             logger.warning("Rendering cancelled by user")
-                #             break
-                #         displayed = np.clip(tonemap_image(result.numpy()), 0, 1)
-                #         cv2.imshow(window_name, cv2.cvtColor(displayed, cv2.COLOR_RGB2BGR))
-
-                #     save_image(out_dir / "output.png", result.numpy(), tonemap=integrator.need_tonemap())
-
-                # if cfg.save_exr:
-                #     write_openexr(out_dir / "output.exr", result, "RGB")
+                # TODO: add live gui?
 
             integrator.on_render_ended()
-
-            # if cfg.gui:
-            #     try:
-            #         while True:
-            #             key = cv2.waitKey(20) & 0xFFFF
-            #             if key == 27:  # esc
-            #                 break
-            #     except KeyboardInterrupt:
-            #         pass
-            #     cv2.destroyAllWindows()
 
             return
 
@@ -456,6 +420,4 @@ def main(cfg: HydraConfig = None):
 
 
 if __name__=='__main__':
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-
     main()

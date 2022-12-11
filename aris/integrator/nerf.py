@@ -94,7 +94,7 @@ class NerfIntegrator(Integrator):
 
     def render_path(self, render_poses, hwf, K, chunk, render_kwargs, gt_imgs=None, savedir=None, render_factor=0):
 
-        print(render_poses.shape)
+        n_poses = render_poses.shape[0]
 
         H, W, focal = hwf
 
@@ -125,8 +125,19 @@ class NerfIntegrator(Integrator):
 
             if savedir is not None:
                 rgb8 = to8b(rgbs[-1])
-                filename = os.path.join(savedir, '{:03d}.png'.format(i))
-                imageio.imwrite(filename, rgb8)
+                disp8 = to8b(disps[-1])
+                if n_poses == 1:
+                    # save rendered image and depth map as output_*.png
+                    rgb_filename = os.path.join(savedir, 'output_rbg.png')
+                    imageio.imwrite(rgb_filename, rgb8)
+
+                    disp_filename = os.path.join(savedir, 'output_disp.png')
+                    imageio.imwrite(disp_filename, disp8)
+
+                else:
+                    # save rendered image for later video compilation
+                    filename = os.path.join(savedir, '{:03d}.png'.format(i))
+                    imageio.imwrite(filename, rgb8)
 
 
         rgbs = np.stack(rgbs, 0)

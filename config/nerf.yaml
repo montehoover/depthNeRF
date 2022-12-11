@@ -4,6 +4,7 @@ defaults:
   - _self_
 
 device: cuda
+# gui: false            # (TODO: implement or remove)
 basedir: './outputs/nerf'
 
 rendering:
@@ -12,6 +13,6 @@ rendering:
 nerf:
   rendering:
     render_only: true   # just render, don't train
-    render_video: true  # render a video of preset poses
+    render_video: false # render a video of preset poses
     render_test: false  # render sparse test sequence video
     render_factor: 0    # render downsampling (TODO: remove?)

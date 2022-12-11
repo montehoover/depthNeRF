@@ -8,7 +8,9 @@
 
 ## 1. Download this repository
 
-...
+```
+git clone ???
+```
 
 ## 2. Environment Setup
 
@@ -92,8 +94,7 @@ Verify your basic setup by rending the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.experiment=lego_test \
-  nerf.rendering.render_only=true
+  nerf.experiment=lego_test
 ```
 
 Once that runs, verify the video at `outputs/nerf/lego_test/renderonly_path_200000`.
@@ -116,12 +117,50 @@ See below for more details on rendering and training.
 The pre-trained models are stored in directories with `_test` suffixes to
 deter overwriting. These are great for testing rendering without training.
 
-For example, to render a video from fern:
+For example, to render a view from fern:
 
 ```
 python render_volume.py nerf fern \
-  nerf.experiment.expname fern_test \
-  nerf.rendering.render_only true
+  nerf.experiment fern_test
 ```
 
-Check out `./outputs/nerf` for a full list of the available models.
+The outputs will be written to `outputs/nerf/fern_test/output_{rgb,disp}.py`.
+
+Check out `./outputs/nerf` for a full list of the available pretrained models.
+
+## Rendering a Specified Pose
+
+You can customize your camera position by passing in the `nerf.rendering.pose`
+items in the command line. There are three spherical coords: theta, phi, and r.
+The viewing angle is towards the center of the volume. All angles are in degrees.
+
+For example:
+
+```
+python render_volume.py nerf=nerf_lego \
+  nerf.rendering.pose.theta 135 \
+  nerf.rendering.pose.phi -30 \
+  nerf.rendering.pose.radius 3
+```
+
+## Rendering a Video
+
+To get a better idea of how the volume looks at different angles, you can also
+render a full rotation video with a pre-set trajectory (as included in
+nerf-pytorch).
+
+Note: these options are incompatible with a custom pose and gui=true.
+
+```
+python render_volume.py nerf=nerf_lego \
+  nerf.rendering.render_video true
+```
+
+## Interactive Display
+
+TODO (gui=true) --- can't test on my system
+
+
+# Training
+
+TODO
