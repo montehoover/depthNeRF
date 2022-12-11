@@ -168,4 +168,13 @@ TODO (gui=true) --- can't test on my system
 
 # Training
 
-TODO
+Training is easy---just use set the `rendering.render_only` property to false!
+Logs will be saved at `outputs/nerf/$EXPERIMENT_NAME` every 10k epochs by default.
+
+```
+python render_volume.py nerf chair \
+  nerf.experiment my_awesome_experiment \
+  nerf.rendering.render_only false
+```
+
+(TODO: add more config details)
