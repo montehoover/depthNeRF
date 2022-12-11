@@ -125,7 +125,7 @@ class NerfIntegrator(Integrator):
 
             if savedir is not None:
                 rgb8 = to8b(rgbs[-1])
-                disp8 = to8b(disps[-1])
+                disp8 = to8b(disps[-1] / np.max(disps[-1]))
                 if n_poses == 1:
                     # save rendered image and depth map as output_*.png
                     rgb_filename = os.path.join(savedir, 'output_rbg.png')

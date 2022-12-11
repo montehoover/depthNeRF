@@ -1,61 +1,62 @@
 defaults:
   - _self_
 
-experiment: ???
+experiment: ???                   # experiment name (determines save directory)
 
 training:
-  netdepth: 8
-  netwidth: 256
-  netdepth_fine: 8
-  netwidth_fine: 256
-  N_rand: 4096      # 32*32*4
-  lrate: 5e-4
-  lrate_decay: 250
-  chunk: 32768      # 1024*32
-  netchunk: 65536   # 1024*64
-  no_batching: false
-  no_reload: false
-  ft_path: ???
+  netdepth: 8                     # layers in network
+  netwidth: 256                   # channels in layer
+  netdepth_fine: 8                # layers in fine network
+  netwidth_fine: 256              # channels in layer in fine network
+  N_rand: 4096      # 32*32*4     # batch size (no. random rays generated per gradient step)
+  lrate: 5e-4                     # learning rate
+  lrate_decay: 250                # exponential learning rate decay (in 1000 steps)
+  chunk: 32768      # 1024*32     # number of rays processed in parallel, decrease if running out of memory
+  netchunk: 65536   # 1024*64     # number of pts sent through network in parallel, decrease if running out of memory
+  no_batching: false              # only take random rays from 1 image at a time
+  no_reload: false                # do not reload weights from saved ckpt
+  ft_path: ???                    # specify weights npy file to reload for coarse network
 
-  precrop_iters: 0
-  precrop_frac: 0.5
+  precrop_iters: 0                # number of steps to train on central crops
+  precrop_frac: 0.5               # fraction of img taken for central crops
 
 rendering:
-  N_samples: 64
-  N_importance: 0
-  perturb: 1.
-  use_viewdirs: true
-  i_embed: 0
-  multires: 10
-  multires_views: 4
-  raw_noise_std: 0
-  pose:
+  N_samples: 64                   # number of coarse samples per ray
+  N_importance: 0                 # number of additional fine samples per ray
+  perturb: 1.                     # float, 0 or 1. If non-zero, each ray is sampled at stratified
+  use_viewdirs: false             # If True, use viewing direction of a point in space in model.
+  i_embed: 0                      # set 0 for default positional encoding, -1 for none
+  multires: 10                    # log2 of max freq for positional encoding (3D location)
+  multires_views: 4               # log2 of max freq for positional encoding (2D location)
+  raw_noise_std: 0                # std dev of noise added to regularize sigma_a output
+
+  pose:                           # position of the camera in spherical coords
       theta: ???
       phi: ???
       radius: ???
 
 dataset:
-  dataset_type: ???
-  datadir: ???
-  testskip: 8
+  dataset_type: ???               # options: llff / blendr / deepvoxels
+  datadir: ???                    # input data directory
+  testskip: 8                     # will load 1/N images from test/val sets, useful for large datasets like deepvoxels
 
   blendr:
-    white_bkgd: false
-    half_res: false
+    white_bkgd: false             # set to render synthetic data on a white background (always use for dvoxels)
+    half_res: false               # load blendr synthetic data at 400x400 instead of 800x800
 
   deepvoxels:
-    shape: ???  # 'greek'
+    shape: ???  # 'greek'         # options: armchair / cube / greek / vase
 
   llff:
-    factor: ???
-    no_ndc: false
-    lindisp: false
-    spherify: false
-    llffhold: ???
+    factor: ???                   # downsample factor for LLFF images
+    no_ndc: false                 # do not use normalized device coords (set for non-forward facing scenes)
+    lindisp: false                # sampling linearly in disparity rather than depth
+    spherify: false               # set for spherical 360 scenes
+    llffhold: ???                 # will take every 1/D images as LLFF test set, paper uses 8
 
 logging:
-  i_print: 100
-  i_img: 500
-  i_weights: 10000
-  i_testset: 50000
-  i_video: 50000
+  i_print: 100                    # frequency of console printout and metric logging
+  i_img: 500                      # frequency of tensorboard image logging
+  i_weights: 10000                # frequency of weight ckpt saving
+  i_testset: 50000                # frequency of testset saving
+  i_video: 50000                  # frequency of render_poses video saving
