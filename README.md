@@ -183,7 +183,7 @@ python render_volume.py nerf chair \
 
 ### Training with depth image data
 
-Download "lego_depths" data from []() and add it to data/nerf_synthetic. Run training with depth images with the following command:
+Download "lego_depths" data from [here](https://drive.google.com/drive/folders/1egZ6y1ECzKpcQRzJz6yDTmQ7qYzb0wtL?usp=share_link) and add it to data/nerf_synthetic. Run training with depth images with the following command:
 
 ```
 python render_volume.py \
