@@ -103,7 +103,8 @@ Verify your basic setup by rendering the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.experiment=lego_test nerf.rendering.use_viewdirs=true
+  nerf.experiment=lego_test \
+  nerf.rendering.use_viewdirs=true
 ```
 
 Once that runs, verify the rendered image at `outputs/nerf/lego_test/output_rgb.png`.
@@ -129,8 +130,8 @@ deter overwriting. These are great for testing rendering without training.
 For example, to render a view from fern:
 
 ```
-python render_volume.py nerf fern \
-  nerf.experiment fern_test
+python render_volume.py nerf=fern \
+  nerf.experiment=fern_test
 ```
 
 The outputs will be written to `outputs/nerf/fern_test/output_{rgb,disp}.py`.
@@ -147,9 +148,9 @@ For example:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.rendering.pose.theta 135 \
-  nerf.rendering.pose.phi -30 \
-  nerf.rendering.pose.radius 3
+  nerf.rendering.pose.theta=135 \
+  nerf.rendering.pose.phi=-30 \
+  nerf.rendering.pose.radius=3
 ```
 
 ### Rendering a Video
@@ -162,7 +163,7 @@ Note: these options are incompatible with a custom pose and gui=true.
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.rendering.render_video true
+  nerf.rendering.render_video=true
 ```
 
 ### Interactive Display
@@ -176,9 +177,9 @@ Training is easy---just use set the `rendering.render_only` property to false!
 Logs will be saved at `outputs/nerf/$EXPERIMENT_NAME` every 10k epochs by default.
 
 ```
-python render_volume.py nerf chair \
-  nerf.experiment my_awesome_experiment \
-  nerf.rendering.render_only false
+python render_volume.py nerf=chair \
+  nerf.experiment=my_awesome_experiment \
+  nerf.rendering.render_only=false
 ```
 
 ### Training with depth image data
