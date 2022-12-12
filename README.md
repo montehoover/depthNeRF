@@ -106,7 +106,7 @@ python render_volume.py nerf=nerf_lego \
   nerf.experiment=lego_test nerf.rendering.use_viewdirs=true
 ```
 
-Once that runs, verify the video at `outputs/nerf/lego_test/renderonly_path_200000`.
+Once that runs, verify the rendered image at `outputs/nerf/lego_test/output_rgb.png`.
 
 To verify training, run
 
