@@ -15,6 +15,7 @@ training:
   netchunk: 65536   # 1024*64     # number of pts sent through network in parallel, decrease if running out of memory
   no_batching: false              # only take random rays from 1 image at a time
   no_reload: false                # do not reload weights from saved ckpt
+  use_depths: false               # do not use groundtruth depths during training
   ft_path: ???                    # specify weights npy file to reload for coarse network
   use_depths: false               # use depth images for supervision in loss function
   depth_lambda: 0.1
@@ -27,7 +28,7 @@ rendering:
   N_samples: 64                   # number of coarse samples per ray
   N_importance: 0                 # number of additional fine samples per ray
   perturb: 1.                     # float, 0 or 1. If non-zero, each ray is sampled at stratified
-  use_viewdirs: false             # If True, use viewing direction of a point in space in model.
+  use_viewdirs: true              # If True, use viewing direction of a point in space in model.
   i_embed: 0                      # set 0 for default positional encoding, -1 for none
   multires: 10                    # log2 of max freq for positional encoding (3D location)
   multires_views: 4               # log2 of max freq for positional encoding (2D location)

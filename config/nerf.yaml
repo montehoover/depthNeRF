@@ -3,16 +3,17 @@ defaults:
   - integrator: nerf
   - _self_
 
-device: cuda
-# gui: false            # (TODO: implement or remove)
-basedir: './outputs/nerf'
+device: cuda              # run on GPUs by default (super slow on CPU!)
+basedir: './outputs/nerf' # write outputs here
+
+# gui: false              # (TODO: implement or remove)
 
 rendering:
   scale: -1             # (TODO: remove?)
 
 nerf:
+  train: false          # just render, don't train
   rendering:
-    render_only: true   # just render, don't train
     render_video: false # render a video of preset poses
     render_test: false  # render sparse test sequence video
     render_factor: 0    # render downsampling (TODO: remove?)

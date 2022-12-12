@@ -103,8 +103,7 @@ Verify your basic setup by rendering the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.experiment=lego_test \
-  nerf.rendering.use_viewdirs=true
+  nerf.experiment=lego_test
 ```
 
 Once that runs, verify the rendered image at `outputs/nerf/lego_test/output_rgb.png`.
@@ -113,7 +112,7 @@ To verify training, run
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.rendering.render_only=false
+  nerf.train=true
 ```
 
 Logs will be written to `outputs/nerf/lego` with checkpoints saved every 10k
@@ -173,13 +172,13 @@ TODO (gui=true) --- can't test on my system
 
 ## Training
 
-Training is easy---just use set the `rendering.render_only` property to false!
+Training is easy---just use set the `nerf.train` property to true!
 Logs will be saved at `outputs/nerf/$EXPERIMENT_NAME` every 10k epochs by default.
 
 ```
 python render_volume.py nerf=chair \
   nerf.experiment=my_awesome_experiment \
-  nerf.rendering.render_only=false
+  nerf.train=true
 ```
 
 ### Training with depth image data
@@ -189,10 +188,10 @@ Download "lego_depths" data from [here](https://drive.google.com/drive/folders/1
 ```
 python render_volume.py \
     nerf=nerf_lego_depths \
-    nerf.rendering.render_only=false \
-    nerf.training.use_depths=true
+    nerf.train=true
 ```
 
+You can add your own depth training by adding an appropriate dataset and setting `nerf.training.use_depths=true`.
 
 (TODO: add more config details)
 
