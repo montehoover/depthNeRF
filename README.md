@@ -103,7 +103,7 @@ Verify your basic setup by rending the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.experiment=lego_test
+  nerf.experiment=lego_test nerf.rendering.use_viewdirs=true
 ```
 
 Once that runs, verify the video at `outputs/nerf/lego_test/renderonly_path_200000`.
@@ -112,7 +112,7 @@ To verify training, run
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.rendering.render_only=false
+  nerf.rendering.render_only=false 
 ```
 
 Logs will be written to `outputs/nerf/lego` with checkpoints saved every 10k
