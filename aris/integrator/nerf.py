@@ -195,7 +195,7 @@ class NerfIntegrator(Integrator):
         if len(ckpts) > 0 and not cfg.nerf.training.no_reload:
             ckpt_path = ckpts[-1]
             print('Reloading from', ckpt_path)
-            ckpt = torch.load(ckpt_path)
+            ckpt = torch.load(ckpt_path, map_location=torch.device(device))
 
             start = ckpt['global_step']
             print(ckpt['optimizer_state_dict'].keys())
@@ -295,7 +295,7 @@ class NerfIntegrator(Integrator):
         raw2alpha = lambda raw, dists, act_fn=F.relu: 1.-torch.exp(-act_fn(raw)*dists)
 
         dists = z_vals[...,1:] - z_vals[...,:-1]
-        dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[...,:1].shape)], -1)  # [N_rays, N_samples]
+        dists = torch.cat([dists, torch.Tensor([1e10]).to(device).expand(dists[...,:1].shape)], -1)  # [N_rays, N_samples]
 
         dists = dists * torch.norm(rays_d[...,None,:], dim=-1)
 
@@ -309,10 +309,11 @@ class NerfIntegrator(Integrator):
                 np.random.seed(0)
                 noise = np.random.rand(*list(raw[...,3].shape)) * raw_noise_std
                 noise = torch.Tensor(noise)
+            noise = noise.to(device)
 
         alpha = raw2alpha(raw[...,3] + noise, dists)  # [N_rays, N_samples]
         # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
-        weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)), 1.-alpha + 1e-10], -1), -1)[:, :-1]
+        weights = alpha * torch.cumprod(torch.cat([torch.ones((alpha.shape[0], 1)).to(device), 1.-alpha + 1e-10], -1), -1)[:, :-1]
         rgb_map = torch.sum(weights[...,None] * rgb, -2)  # [N_rays, 3]
 
         depth_map = torch.sum(weights * z_vals, -1)
@@ -375,7 +376,7 @@ class NerfIntegrator(Integrator):
         bounds = torch.reshape(ray_batch[...,6:8], [-1,1,2])
         near, far = bounds[...,0], bounds[...,1] # [-1,1]
 
-        t_vals = torch.linspace(0., 1., steps=N_samples)
+        t_vals = torch.linspace(0., 1., steps=N_samples).to(device)
         if not lindisp:
             z_vals = near * (1.-t_vals) + far * (t_vals)
         else:
@@ -389,13 +390,13 @@ class NerfIntegrator(Integrator):
             upper = torch.cat([mids, z_vals[...,-1:]], -1)
             lower = torch.cat([z_vals[...,:1], mids], -1)
             # stratified samples in those intervals
-            t_rand = torch.rand(z_vals.shape)
+            t_rand = torch.rand(z_vals.shape).to(device)
 
             # Pytest, overwrite u with numpy's fixed random numbers
             if pytest:
                 np.random.seed(0)
                 t_rand = np.random.rand(*list(z_vals.shape))
-                t_rand = torch.Tensor(t_rand)
+                t_rand = torch.Tensor(t_rand).to(device)
 
             z_vals = lower + (upper - lower) * t_rand
 
