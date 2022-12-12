@@ -17,6 +17,8 @@ training:
   no_reload: false                # do not reload weights from saved ckpt
   ft_path: ???                    # specify weights npy file to reload for coarse network
   use_depths: false               # use depth images for supervision in loss function
+  depth_lambda: 0.1
+  epochs: 100000                  # number of iterations to use over full training set
 
   precrop_iters: 0                # number of steps to train on central crops
   precrop_frac: 0.5               # fraction of img taken for central crops
