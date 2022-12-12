@@ -388,7 +388,7 @@ def main(cfg: HydraConfig = None):
             logger.info(f'Done, saving {rgbs.shape} {disps.shape}')
             moviebase = os.path.join(basedir, expname, '{}_spiral_{:06d}_'.format(expname, i))
             imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
-            imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps / np.max(disps)), fps=30, quality=8)
+            imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps), fps=30, quality=8)
 
             if cfg.nerf.rendering.use_viewdirs:
                 render_kwargs_test['c2w_staticcam'] = render_poses[0][:3,:4]
