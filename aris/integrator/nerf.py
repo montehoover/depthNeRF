@@ -51,6 +51,7 @@ class NerfIntegrator(Integrator):
         extras: dict with everything returned by render_rays().
         """
         use_depths = depths is not None
+
         if c2w is not None:
             # special case to render full image
             rays_o, rays_d = get_rays(H, W, K, c2w)
@@ -116,7 +117,7 @@ class NerfIntegrator(Integrator):
         for i, c2w in enumerate(tqdm(render_poses)):
             print(i, time.time() - t)
             t = time.time()
-            rgb, disp, acc, depth, _ = self.render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
+            rgb, disp, acc, _ = self.render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
             rgbs.append(rgb.cpu().numpy())
             disps.append(disp.cpu().numpy())
             if i==0:
