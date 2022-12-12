@@ -15,7 +15,6 @@ training:
   netchunk: 65536   # 1024*64     # number of pts sent through network in parallel, decrease if running out of memory
   no_batching: false              # only take random rays from 1 image at a time
   no_reload: false                # do not reload weights from saved ckpt
-  use_depths: false               # do not use groundtruth depths during training
   ft_path: ???                    # specify weights npy file to reload for coarse network
   use_depths: false               # use depth images for supervision in loss function
   depth_lambda: 0.1
