@@ -29,6 +29,7 @@ from aris.utils.nerf.load_llff import load_llff_data
 from aris.utils.nerf.load_deepvoxels import load_dv_data
 from aris.utils.nerf.load_blender import load_blender_data
 from aris.utils.nerf.load_LINEMOD import load_LINEMOD_data
+from aris.utils.nerf.load_depths import load_depth_data
 
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,8 @@ def main(cfg: HydraConfig = None):
         logger.error(f'Unknown dataset type {cfg.nerf.dataset.dataset_type}. Exiting.')
         return
 
+    if cfg.nerf.training.use_depths:
+        depth_images = load_depth_data(cfg.nerf.dataset.datadir)
 
     # configure the integrator
     integrator = build_integrator(cfg.integrator)
@@ -174,6 +177,8 @@ def main(cfg: HydraConfig = None):
     if cfg.nerf.rendering.render_only:
         logger.info('RENDER ONLY')
         with torch.no_grad():
+
+            # Render video
             if cfg.nerf.rendering.render_video:
                 # render a full video using pre-defined poses
                 if cfg.gui == True:
@@ -194,6 +199,7 @@ def main(cfg: HydraConfig = None):
                 logger.info(f'Done rendering {testsavedir}')
                 imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
+            # Render single image
             else:
                 # print(render_poses[10,:,:])
 
@@ -234,6 +240,14 @@ def main(cfg: HydraConfig = None):
         logger.info('shuffle rays')
         np.random.shuffle(rays_rgb)
 
+        if cfg.nerf.training.use_depths:
+            rays_depth = np.concatenate([rays, depth_images[:,None]], 1) # [N, ro+rd+rgb, H, W, 3]
+            rays_depth = np.transpose(rays_depth, [0,2,3,1,4]) # [N, H, W, ro+rd+rgb, 3]
+            rays_depth = np.stack([rays_depth[i] for i in i_train], 0) # train depth images only
+            rays_depth = np.reshape(rays_depth, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
+            rays_depth = rays_depth.astype(np.float32)
+            np.random.shuffle(rays_depth)
+
         logger.info('done')
         i_batch = 0
 
@@ -243,10 +257,13 @@ def main(cfg: HydraConfig = None):
     poses = torch.Tensor(poses).to(cfg.device)
     if use_batching:
         rays_rgb = torch.Tensor(rays_rgb).to(cfg.device)
+    if cfg.nerf.training.use_depths:
+        depth_images = torch.Tensor(depth_images).to(cfg.device)
+        if use_batching:
+            rays_depth = torch.Tensor(rays_depth).to(cfg.device)
 
-
-    N_iters = 200000 + 1
-    logger.info('Begin')
+    N_iters = cfg.nerf.training.epochs  # originally was 200000 + 1
+    logger.info(f'Begin')
     logger.info(f'TRAIN views are {i_train}')
     logger.info(f'TEST views are {i_test}')
     logger.info(f'VAL views are {i_val}')
@@ -260,10 +277,15 @@ def main(cfg: HydraConfig = None):
 
         # Sample random ray batch
         if use_batching:
+
             # Random over all images
             batch = rays_rgb[i_batch:i_batch+N_rand] # [B, 2+1, 3*?]
             batch = torch.transpose(batch, 0, 1)
             batch_rays, target_s = batch[:2], batch[2]
+            if cfg.nerf.training.use_depths:
+                batch_depth = rays_depth[i_batch:i_batch+N_rand]
+                batch_depth = torch.transpose(batch_depth, 0, 1)
+                batch_rays_depth, target_depth_s = batch_depth[:2], batch_depth[2]
 
             i_batch += N_rand
             if i_batch >= rays_rgb.shape[0]:
@@ -278,6 +300,9 @@ def main(cfg: HydraConfig = None):
             target = images[img_i]
             target = torch.Tensor(target).to(cfg.device)
             pose = poses[img_i, :3,:4]
+            if cfg.nerf.training.use_depths:
+                target_depth = depth_images[img_i]
+                target_depth = torch.Tensor(target_depth).to(cfg.device)
 
             if N_rand is not None:
                 rays_o, rays_d = get_rays(H, W, K, torch.Tensor(pose))  # (H, W, 3), (H, W, 3)
@@ -302,16 +327,26 @@ def main(cfg: HydraConfig = None):
                 rays_d = rays_d[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
                 batch_rays = torch.stack([rays_o, rays_d], 0)
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
+                if cfg.nerf.training.use_depths:
+                    target_depth_s = target_depth[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 1)
 
         #####  Core optimization loop  #####
-        rgb, disp, acc, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
+        rgb, disp, acc, depth, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
                                                    verbose=i < 10, retraw=True,
                                                    **render_kwargs_train)
 
         optimizer.zero_grad()
         img_loss = img2mse(rgb, target_s)
+
+        logger.info(f'rgb.shape {rgb.shape}, target_s.shape {target_s.shape}')
+
         trans = extras['raw'][...,-1]
-        loss = img_loss
+        if cfg.nerf.training.use_depths:
+            logger.info(f'depth.shape {depth.shape}, target_depth_s.shape {target_depth_s.shape}')
+            depth_loss = torch.mean(((depth[:, None] - target_depth_s) ** 2) * ray_weights)
+            loss = img_loss + cfg.nerf.training.depth_lambda * depth_loss
+        else:
+            loss = img_loss
         psnr = mse2psnr(img_loss)
 
         if 'rgb0' in extras:

@@ -1,0 +1,10 @@
+defaults:
+  - _base_blendr
+  - _self_
+
+experiment: lego_depths
+
+dataset:
+  datadir: ./data/nerf_synthetic/lego_depths
+  blendr:
+    half_res: true

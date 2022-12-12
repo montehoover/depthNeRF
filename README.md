@@ -112,7 +112,7 @@ To verify training, run
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.rendering.render_only=false 
+  nerf.rendering.render_only=false
 ```
 
 Logs will be written to `outputs/nerf/lego` with checkpoints saved every 10k
@@ -180,6 +180,18 @@ python render_volume.py nerf chair \
   nerf.experiment my_awesome_experiment \
   nerf.rendering.render_only false
 ```
+
+### Training with depth image data
+
+Download "lego_depths" data from [here](https://drive.google.com/drive/folders/1egZ6y1ECzKpcQRzJz6yDTmQ7qYzb0wtL?usp=share_link) and add it to data/nerf_synthetic. Run training with depth images with the following command:
+
+```
+python render_volume.py \
+    nerf=nerf_lego_depths \
+    nerf.rendering.render_only=false \
+    nerf.training.use_depths=true
+```
+
 
 (TODO: add more config details)
 

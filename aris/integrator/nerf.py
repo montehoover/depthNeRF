@@ -26,7 +26,7 @@ class NerfIntegrator(Integrator):
 
     def render(self, H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
                     near=0., far=1.,
-                    use_viewdirs=False, c2w_staticcam=None,
+                    use_viewdirs=False, c2w_staticcam=None, depths=None,
                     **kwargs):
         """Render rays
         Args:
@@ -76,7 +76,9 @@ class NerfIntegrator(Integrator):
         rays_d = torch.reshape(rays_d, [-1,3]).float()
 
         near, far = near * torch.ones_like(rays_d[...,:1]), far * torch.ones_like(rays_d[...,:1])
-        rays = torch.cat([rays_o, rays_d, near, far], -1)
+        rays = torch.cat([rays_o, rays_d, near, far], -1) # B x 8
+        if depths is not None:
+            rays = torch.cat([rays, depths.reshape(-1,1)], -1)
         if use_viewdirs:
             rays = torch.cat([rays, viewdirs], -1)
 
@@ -86,7 +88,7 @@ class NerfIntegrator(Integrator):
             k_sh = list(sh[:-1]) + list(all_ret[k].shape[1:])
             all_ret[k] = torch.reshape(all_ret[k], k_sh)
 
-        k_extract = ['rgb_map', 'disp_map', 'acc_map']
+        k_extract = ['rgb_map', 'disp_map', 'acc_map', 'depth_map']
         ret_list = [all_ret[k] for k in k_extract]
         ret_dict = {k : all_ret[k] for k in all_ret if k not in k_extract}
         return ret_list + [ret_dict]
@@ -324,19 +326,19 @@ class NerfIntegrator(Integrator):
 
 
     def _render_rays(self,
-                    ray_batch,
-                    network_fn,
-                    network_query_fn,
-                    N_samples,
-                    retraw=False,
-                    lindisp=False,
-                    perturb=0.,
-                    N_importance=0,
-                    network_fine=None,
-                    white_bkgd=False,
-                    raw_noise_std=0.,
-                    verbose=False,
-                    pytest=False):
+                ray_batch,
+                network_fn,
+                network_query_fn,
+                N_samples,
+                retraw=False,
+                lindisp=False,
+                perturb=0.,
+                N_importance=0,
+                network_fine=None,
+                white_bkgd=False,
+                raw_noise_std=0.,
+                verbose=False,
+                pytest=False):
         """Volumetric rendering.
         Args:
         ray_batch: array of shape [batch_size, ...]. All information necessary
@@ -369,7 +371,7 @@ class NerfIntegrator(Integrator):
         """
         N_rays = ray_batch.shape[0]
         rays_o, rays_d = ray_batch[:,0:3], ray_batch[:,3:6] # [N_rays, 3] each
-        viewdirs = ray_batch[:,-3:] if ray_batch.shape[-1] > 8 else None
+        viewdirs = ray_batch[:,-3:] if ray_batch.shape[-1] > 9 else None  # 9 dims including depth
         bounds = torch.reshape(ray_batch[...,6:8], [-1,1,2])
         near, far = bounds[...,0], bounds[...,1] # [-1,1]
 
@@ -421,7 +423,7 @@ class NerfIntegrator(Integrator):
 
             rgb_map, disp_map, acc_map, weights, depth_map = self._raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
 
-        ret = {'rgb_map' : rgb_map, 'disp_map' : disp_map, 'acc_map' : acc_map}
+        ret = {'rgb_map' : rgb_map, 'disp_map' : disp_map, 'acc_map' : acc_map, 'depth_map' : depth_map}
         if retraw:
             ret['raw'] = raw
         if N_importance > 0:
