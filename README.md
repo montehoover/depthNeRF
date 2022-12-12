@@ -99,7 +99,7 @@ GPU---no distributed training.
 
 #### 5. Verify
 
-Verify your basic setup by rending the lego scene:
+Verify your basic setup by rendering the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
