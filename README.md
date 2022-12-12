@@ -126,16 +126,19 @@ See below for more details on rendering and training.
 The pre-trained models are stored in directories with `_test` suffixes to
 deter overwriting. These are great for testing rendering without training.
 
-For example, to render a view from fern:
+For example, to render a view from lego (`nerf_` prefix is due to name conflict):
 
 ```
-python render_volume.py nerf=fern \
-  nerf.experiment=fern_test
+python render_volume.py nerf=nerf_lego \
+  nerf.experiment=lego_test
 ```
 
-The outputs will be written to `outputs/nerf/fern_test/output_{rgb,disp}.py`.
+The outputs will be written to `outputs/nerf/lego_test/output_{rgb,disp}.py`.
 
 Check out `outputs/nerf/` for a full list of the available pretrained models.
+
+> NOTE: currently single frame rendering without a specified pose only works for Blendr
+> models, not LLFF. We need to find appropriate theta/phi/r values for the LLFF dataset.
 
 ### Rendering a Specified Pose
 
@@ -161,7 +164,7 @@ nerf-pytorch).
 Note: these options are incompatible with a custom pose and gui=true.
 
 ```
-python render_volume.py nerf=nerf_lego \
+python render_volume.py nerf=fern \
   nerf.rendering.render_video=true
 ```
 
