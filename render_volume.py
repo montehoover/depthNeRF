@@ -174,6 +174,8 @@ def main(cfg: HydraConfig = None):
     if cfg.nerf.rendering.render_only:
         logger.info('RENDER ONLY')
         with torch.no_grad():
+
+            # Render video
             if cfg.nerf.rendering.render_video:
                 # render a full video using pre-defined poses
                 if cfg.gui == True:
@@ -194,6 +196,7 @@ def main(cfg: HydraConfig = None):
                 logger.info(f'Done rendering {testsavedir}')
                 imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
+            # Render single image
             else:
                 # print(render_poses[10,:,:])
 
@@ -304,14 +307,18 @@ def main(cfg: HydraConfig = None):
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
         #####  Core optimization loop  #####
-        rgb, disp, acc, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
+        rgb, disp, acc, depth, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
                                                    verbose=i < 10, retraw=True,
                                                    **render_kwargs_train)
 
         optimizer.zero_grad()
         img_loss = img2mse(rgb, target_s)
         trans = extras['raw'][...,-1]
-        loss = img_loss
+        if cfg.nerf.training.use_depths:
+            depth_loss = torch.mean(((depth - target_depth) ** 2) * ray_weights)
+            loss = img_loss + cfg.nerf.training.depth_lambda * depth_loss
+        else:
+            loss = img_loss
         psnr = mse2psnr(img_loss)
 
         if 'rgb0' in extras:
