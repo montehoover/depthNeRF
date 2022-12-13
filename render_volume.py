@@ -333,7 +333,7 @@ def main(cfg: HydraConfig = None):
                     target_depth_s = target_depth[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 1)
 
         #####  Core optimization loop  #####
-        rgb, disp, acc, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
+        rgb, disp, acc, depth, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
                                                    verbose=i < 10, retraw=True,
                                                    **render_kwargs_train)
 
