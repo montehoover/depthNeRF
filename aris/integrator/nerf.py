@@ -26,7 +26,7 @@ class NerfIntegrator(Integrator):
 
     def render(self, H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
                     near=0., far=1.,
-                    use_viewdirs=False, c2w_staticcam=None, depths=None,
+                    use_viewdirs=False, c2w_staticcam=None,
                     **kwargs):
         """Render rays
         Args:
@@ -50,8 +50,6 @@ class NerfIntegrator(Integrator):
         acc_map: [batch_size]. Accumulated opacity (alpha) along a ray.
         extras: dict with everything returned by render_rays().
         """
-        use_depths = depths is not None
-
         if c2w is not None:
             # special case to render full image
             rays_o, rays_d = get_rays(H, W, K, c2w)
@@ -79,8 +77,6 @@ class NerfIntegrator(Integrator):
 
         near, far = near * torch.ones_like(rays_d[...,:1]), far * torch.ones_like(rays_d[...,:1])
         rays = torch.cat([rays_o, rays_d, near, far], -1) # B x 8
-        if use_depths:
-            rays = torch.cat([rays, depths.reshape(-1,1)], -1)
         if use_viewdirs:
             rays = torch.cat([rays, viewdirs], -1)
 
@@ -90,9 +86,7 @@ class NerfIntegrator(Integrator):
             k_sh = list(sh[:-1]) + list(all_ret[k].shape[1:])
             all_ret[k] = torch.reshape(all_ret[k], k_sh)
 
-        k_extract = ['rgb_map', 'disp_map', 'acc_map']
-        if use_depths:
-            k_extract.append('depth_map')
+        k_extract = ['rgb_map', 'disp_map', 'acc_map', 'depth_map']
         ret_list = [all_ret[k] for k in k_extract]
         ret_dict = {k : all_ret[k] for k in all_ret if k not in k_extract}
         return ret_list + [ret_dict]
