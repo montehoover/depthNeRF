@@ -1,4 +1,6 @@
 import logging
+from pathlib import Path
+
 
 # import cv2
 import imageio
@@ -44,7 +46,7 @@ def main(cfg: HydraConfig = None):
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
     # save everything to out_dir
-    # out_dir = Path(HydraConfig().get().run.dir)
+    hydra_out_dir = Path(HydraConfig().get().run.dir)
     out_dir = cfg.basedir
 
     # print and save config for debugging
@@ -308,8 +310,6 @@ def main(cfg: HydraConfig = None):
             if cfg.nerf.training.use_depths:
                 target_depth_vals = depth_vals[:, img_i]  # (3, H, W)
                 target_depth_vals = torch.Tensor(target_depth_vals).to(cfg.device)
-                # target_disp = disp_images[img_i]
-                # target_disp = torch.Tensor(target_disp).to(cfg.device)
 
             if N_rand is not None:
                 rays_o, rays_d = get_rays(H, W, K, torch.Tensor(pose))  # (H, W, 3), (H, W, 3)
@@ -353,8 +353,6 @@ def main(cfg: HydraConfig = None):
 
         trans = extras['raw'][...,-1]
         if cfg.nerf.training.use_depths:
-            # disp = disp[..., None]  # (N_rand, 1)
-            # depth = depth[..., None]  # (N_rand, 1)
             disp = disp.nan_to_num()
             disp = torch.clip(disp,0,1)
             target_disp_s = target_disp_s.nan_to_num()
@@ -407,6 +405,13 @@ def main(cfg: HydraConfig = None):
                 'network_fine_state_dict': render_kwargs_train['network_fine'].state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }, path)
+            # Also save to hydra output dir
+            torch.save({
+                'global_step': global_step,
+                'network_fn_state_dict': render_kwargs_train['network_fn'].state_dict(),
+                'network_fine_state_dict': render_kwargs_train['network_fine'].state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+            }, hydra_out_dir)
             logger.info(f'Saved checkpoints at {path}')
 
         if i%cfg.nerf.logging.i_video==0 and i > 0:
@@ -417,6 +422,10 @@ def main(cfg: HydraConfig = None):
             moviebase = os.path.join(basedir, expname, '{}_spiral_{:06d}_'.format(expname, i))
             imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
             imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps), fps=30, quality=8)
+            # Also save to hydra output dir
+            hydra_moviebase = os.path.join(hydra_out_dir, '{}_spiral_{:06d}_'.format(expname, i))
+            imageio.mimwrite(hydra_moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
+            imageio.mimwrite(hydra_moviebase + 'disp.mp4', to8b(disps), fps=30, quality=8)
 
             if cfg.nerf.rendering.use_viewdirs:
                 render_kwargs_test['c2w_staticcam'] = render_poses[0][:3,:4]
@@ -424,19 +433,26 @@ def main(cfg: HydraConfig = None):
                     rgbs_still, _ = integrator.render_path(render_poses, hwf, K, cfg.nerf.training.chunk, render_kwargs_test)
                 render_kwargs_test['c2w_staticcam'] = None
                 imageio.mimwrite(moviebase + 'rgb_still.mp4', to8b(rgbs_still), fps=30, quality=8)
+                # Also save to hydra output dir
+                imageio.mimwrite(hydra_moviebase + 'rgb_still.mp4', to8b(rgbs_still), fps=30, quality=8)
 
         if i%cfg.nerf.logging.i_testset==0 and i > 0:
             testsavedir = os.path.join(basedir, expname, 'testset_{:06d}'.format(i))
             os.makedirs(testsavedir, exist_ok=True)
             logger.info(f'test poses shape {poses[i_test].shape}')
             with torch.no_grad():
-                integrator.render_path(torch.Tensor(poses[i_test]).to(cfg.device), hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
+                rgbs_still, _ = integrator.render_path(torch.Tensor(poses[i_test]).to(cfg.device), hwf, K, cfg.nerf.training.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
+            # Also save to hydra output dir
+            hydra_testsavedir = os.path.join(hydra_out_dir, 'testset_{:06d}'.format(i))
+            for i, img in enumerate(rgbs_still):
+                imageio.imwrite(os.path.join(hydra_testsavedir, f'rgb_still_{i}.png'), to8b(img))
             logger.info('Saved test set')
 
 
 
         if i%cfg.nerf.logging.i_print==0:
             tqdm.write(f"[TRAIN] Iter: {i} Loss: {loss.item()}  PSNR: {psnr.item()}")
+            logger.info(f"[TRAIN] Iter: {i} Loss: {loss.item()}  PSNR: {psnr.item()}")
         """
             print(expname, i, psnr.numpy(), loss.numpy(), global_step.numpy())
             print('iter time {:.05f}'.format(dt))
