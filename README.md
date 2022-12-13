@@ -103,8 +103,7 @@ Verify your basic setup by rendering the lego scene:
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.experiment=lego_test \
-  nerf.rendering.use_viewdirs=true
+  nerf.experiment=lego_test
 ```
 
 Once that runs, verify the rendered image at `outputs/nerf/lego_test/output_rgb.png`.
@@ -113,7 +112,7 @@ To verify training, run
 
 ```
 python render_volume.py nerf=nerf_lego \
-  nerf.rendering.render_only=false
+  nerf.train=true
 ```
 
 Logs will be written to `outputs/nerf/lego` with checkpoints saved every 10k
@@ -127,16 +126,19 @@ See below for more details on rendering and training.
 The pre-trained models are stored in directories with `_test` suffixes to
 deter overwriting. These are great for testing rendering without training.
 
-For example, to render a view from fern:
+For example, to render a view from lego (`nerf_` prefix is due to name conflict):
 
 ```
-python render_volume.py nerf=fern \
-  nerf.experiment=fern_test
+python render_volume.py nerf=nerf_lego \
+  nerf.experiment=lego_test
 ```
 
-The outputs will be written to `outputs/nerf/fern_test/output_{rgb,disp}.py`.
+The outputs will be written to `outputs/nerf/lego_test/output_{rgb,disp}.py`.
 
 Check out `outputs/nerf/` for a full list of the available pretrained models.
+
+> NOTE: currently single frame rendering without a specified pose only works for Blendr
+> models, not LLFF. We need to find appropriate theta/phi/r values for the LLFF dataset.
 
 ### Rendering a Specified Pose
 
@@ -162,7 +164,7 @@ nerf-pytorch).
 Note: these options are incompatible with a custom pose and gui=true.
 
 ```
-python render_volume.py nerf=nerf_lego \
+python render_volume.py nerf=fern \
   nerf.rendering.render_video=true
 ```
 
@@ -173,13 +175,13 @@ TODO (gui=true) --- can't test on my system
 
 ## Training
 
-Training is easy---just use set the `rendering.render_only` property to false!
+Training is easy---just use set the `nerf.train` property to true!
 Logs will be saved at `outputs/nerf/$EXPERIMENT_NAME` every 10k epochs by default.
 
 ```
 python render_volume.py nerf=chair \
   nerf.experiment=my_awesome_experiment \
-  nerf.rendering.render_only=false
+  nerf.train=true
 ```
 
 ### Training with depth image data
@@ -189,10 +191,10 @@ Download "lego_depths" data from [here](https://drive.google.com/drive/folders/1
 ```
 python render_volume.py \
     nerf=nerf_lego_depths \
-    nerf.rendering.render_only=false \
-    nerf.training.use_depths=true
+    nerf.train=true
 ```
 
+You can add your own depth training by adding an appropriate dataset and setting `nerf.training.use_depths=true`.
 
 (TODO: add more config details)
 

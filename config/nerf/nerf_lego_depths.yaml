@@ -4,6 +4,9 @@ defaults:
 
 experiment: lego_depths
 
+training:
+  use_depths: true
+
 dataset:
   datadir: ./data/nerf_synthetic/lego_depths
   blendr:

@@ -111,7 +111,7 @@ class NerfIntegrator(Integrator):
         for i, c2w in enumerate(tqdm(render_poses)):
             print(i, time.time() - t)
             t = time.time()
-            rgb, disp, acc, _ = self.render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
+            rgb, disp, acc, depth, _ = self.render(H, W, K, chunk=chunk, c2w=c2w[:3,:4], **render_kwargs)
             rgbs.append(rgb.cpu().numpy())
             disps.append(disp.cpu().numpy())
             if i==0:

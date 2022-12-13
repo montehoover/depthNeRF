@@ -176,7 +176,7 @@ def main(cfg: HydraConfig = None):
     render_poses = torch.Tensor(render_poses).to(cfg.device)
 
     # Short circuit if only rendering out from trained model
-    if cfg.nerf.rendering.render_only:
+    if not cfg.nerf.train:
         logger.info('RENDER ONLY')
         with torch.no_grad():
 
