@@ -50,7 +50,7 @@ def load_blender_data(basedir, half_res=False, testskip=1, use_depths=False):
     counts = [0]
 
     if use_depths:
-        all_depth_imgs = []
+        all_disp_imgs = []
         get_first = True
         placeholder = ""
 
@@ -58,7 +58,7 @@ def load_blender_data(basedir, half_res=False, testskip=1, use_depths=False):
         meta = metas[s]
         imgs = []
         poses = []
-        depth_imgs = []
+        disp_imgs = []
         if s=='train' or testskip==0:
             skip = 1
         else:
@@ -79,27 +79,28 @@ def load_blender_data(basedir, half_res=False, testskip=1, use_depths=False):
                 # Load a dummy depth image for val and test
                 else:
                     fname = placeholder
-                depth_imgs.append(imageio.imread(depth_fname))
+                disp_imgs.append(imageio.imread(depth_fname))
 
         imgs = (np.array(imgs) / 255.).astype(np.float32) # keep all 4 channels (RGBA)
         poses = np.array(poses).astype(np.float32)
         counts.append(counts[-1] + imgs.shape[0])
         if use_depths:
-            depth_imgs = (np.array(depth_imgs) / 255.).astype(np.float32) # (n_imgs, H, W, 4)
-            # All 3 RGB channels are identical and we don't need alpha. Keep the first channel.
-            depth_imgs = depth_imgs[:,:,:,0]  # (n_imgs, H, W)
+            disp_imgs = (np.array(disp_imgs) / 255.).astype(np.float32) # (n_imgs, H, W, 4)
 
         all_imgs.append(imgs)
         all_poses.append(poses)
         if use_depths:
-            all_depth_imgs.append(depth_imgs)
+            all_disp_imgs.append(disp_imgs)
 
     i_split = [np.arange(counts[i], counts[i+1]) for i in range(3)]
 
     imgs = np.concatenate(all_imgs, 0)
     poses = np.concatenate(all_poses, 0)
     if use_depths:
-        depth_imgs = np.concatenate(all_depth_imgs, 0)
+        disp_imgs = np.concatenate(all_disp_imgs, 0)
+        # All 3 RGB channels are identical. Keep the first channel. Treat the alpha value as a weight for the loss function.
+        disp_wts = disp_imgs[:,:,:,3]
+        disp_imgs = disp_imgs[:,:,:,0]
 
     H, W = imgs[0].shape[:2]
     camera_angle_x = float(meta['camera_angle_x'])
@@ -117,14 +118,25 @@ def load_blender_data(basedir, half_res=False, testskip=1, use_depths=False):
             imgs_half_res[i] = cv2.resize(img, (W, H), interpolation=cv2.INTER_AREA)
         imgs = imgs_half_res
         if use_depths:
-            depth_imgs_half_res = np.zeros((depth_imgs.shape[0], H, W))
-            for i, depth_img in enumerate(depth_imgs):
-                depth_imgs_half_res[i] = cv2.resize(depth_img, (W, H), interpolation=cv2.INTER_AREA)
-            depth_imgs = depth_imgs_half_res
+            disp_imgs_half_res = np.zeros((disp_imgs.shape[0], H, W))
+            disp_wts_half_res = np.zeros((disp_wts.shape[0], H, W))
+            for i, disp_img in enumerate(disp_imgs):
+                disp_imgs_half_res[i] = cv2.resize(disp_img, (W, H), interpolation=cv2.INTER_AREA)
+            for i, disp_img in enumerate(disp_wts):
+                disp_wts_half_res[i] = cv2.resize(disp_img, (W, H), interpolation=cv2.INTER_AREA)
+            disp_imgs = disp_imgs_half_res
+            disp_wts = disp_wts_half_res
 
     if not use_depths:
+        disp_imgs = None
+        disp_wts = None
         depth_imgs = None
     else:
-        depth_imgs = np.expand_dims(depth_imgs, axis=-1)  # (n_imgs, H, W, 1)
+        # disp_imgs = np.expand_dims(disp_imgs, axis=-1)  # (n_imgs, H, W, 1)
+        disp_imgs = np.clip(disp_imgs,1e-10,1) # diparity images should be between 0 and 1. Here we use 1e-10 instead of 0. This makes the nan_to_num below redundant.
+        disp_wts = np.clip(disp_wts, 0, 1)
 
-    return imgs, poses, render_poses, [H, W, focal], i_split, depth_imgs
+        depth_imgs = 1 / disp_imgs
+        depth_imgs = np.nan_to_num(depth_imgs)  # Replace inf with large numbers
+
+    return imgs, poses, render_poses, [H, W, focal], i_split, disp_imgs, depth_imgs, disp_wts
