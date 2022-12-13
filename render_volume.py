@@ -85,7 +85,9 @@ def main(cfg: HydraConfig = None):
         logger.info(f'NEAR FAR {near} {far}')
 
     elif cfg.nerf.dataset.dataset_type == 'blender':
-        images, poses, render_poses, hwf, i_split = load_blender_data(cfg.nerf.dataset.datadir, cfg.nerf.dataset.blendr.half_res, cfg.nerf.dataset.testskip)
+        images, poses, render_poses, hwf, i_split, depth_images = load_blender_data(cfg.nerf.dataset.datadir, cfg.nerf.dataset.blendr.half_res, cfg.nerf.dataset.testskip, cfg.nerf.training.use_depths)
+        if cfg.nerf.training.use_depths:
+            assert depth_images is not None, "The config said to use depth but depth images were not successfully loaded."
         logger.info(f'Loaded blender {images.shape} {render_poses.shape} {hwf} {cfg.nerf.dataset.datadir}')
         i_train, i_val, i_test = i_split
 
@@ -125,8 +127,8 @@ def main(cfg: HydraConfig = None):
         logger.error(f'Unknown dataset type {cfg.nerf.dataset.dataset_type}. Exiting.')
         return
 
-    if cfg.nerf.training.use_depths:
-        depth_images = load_depth_data(cfg.nerf.dataset.datadir)
+    # if cfg.nerf.training.use_depths:
+    #     depth_images = load_depth_data(cfg.nerf.dataset.datadir)
 
     # configure the integrator
     integrator = build_integrator(cfg.integrator)
@@ -331,19 +333,18 @@ def main(cfg: HydraConfig = None):
                     target_depth_s = target_depth[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 1)
 
         #####  Core optimization loop  #####
-        rgb, disp, acc, depth, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
+        rgb, disp, acc, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
                                                    verbose=i < 10, retraw=True,
                                                    **render_kwargs_train)
 
         optimizer.zero_grad()
         img_loss = img2mse(rgb, target_s)
 
-        logger.info(f'rgb.shape {rgb.shape}, target_s.shape {target_s.shape}')
 
         trans = extras['raw'][...,-1]
         if cfg.nerf.training.use_depths:
-            logger.info(f'depth.shape {depth.shape}, target_depth_s.shape {target_depth_s.shape}')
-            depth_loss = torch.mean(((depth[:, None] - target_depth_s) ** 2) * ray_weights)
+            disp = disp[..., None]  # (N_rand, 1)
+            depth_loss = torch.mean((disp - target_depth_s) ** 2)
             loss = img_loss + cfg.nerf.training.depth_lambda * depth_loss
         else:
             loss = img_loss
