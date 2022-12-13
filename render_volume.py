@@ -29,7 +29,6 @@ from aris.utils.nerf.load_llff import load_llff_data
 from aris.utils.nerf.load_deepvoxels import load_dv_data
 from aris.utils.nerf.load_blender import load_blender_data
 from aris.utils.nerf.load_LINEMOD import load_LINEMOD_data
-from aris.utils.nerf.load_depths import load_depth_data
 
 
 logger = logging.getLogger(__name__)
@@ -85,9 +84,10 @@ def main(cfg: HydraConfig = None):
         logger.info(f'NEAR FAR {near} {far}')
 
     elif cfg.nerf.dataset.dataset_type == 'blender':
-        images, poses, render_poses, hwf, i_split, depth_images = load_blender_data(cfg.nerf.dataset.datadir, cfg.nerf.dataset.blendr.half_res, cfg.nerf.dataset.testskip, cfg.nerf.training.use_depths)
+        images, poses, render_poses, hwf, i_split, disp_images, depth_images, depth_weights = load_blender_data(cfg.nerf.dataset.datadir, cfg.nerf.dataset.blendr.half_res, cfg.nerf.dataset.testskip, cfg.nerf.training.use_depths)
         if cfg.nerf.training.use_depths:
             assert depth_images is not None, "The config said to use depth but depth images were not successfully loaded."
+            depth_vals = np.stack([disp_images, depth_images, depth_weights])  # (3, N_images, H, W)
         logger.info(f'Loaded blender {images.shape} {render_poses.shape} {hwf} {cfg.nerf.dataset.datadir}')
         i_train, i_val, i_test = i_split
 
@@ -126,9 +126,6 @@ def main(cfg: HydraConfig = None):
     else:
         logger.error(f'Unknown dataset type {cfg.nerf.dataset.dataset_type}. Exiting.')
         return
-
-    # if cfg.nerf.training.use_depths:
-    #     depth_images = load_depth_data(cfg.nerf.dataset.datadir)
 
     # configure the integrator
     integrator = build_integrator(cfg.integrator)
@@ -243,12 +240,14 @@ def main(cfg: HydraConfig = None):
         np.random.shuffle(rays_rgb)
 
         if cfg.nerf.training.use_depths:
-            rays_depth = np.concatenate([rays, depth_images[:,None]], 1) # [N, ro+rd+rgb, H, W, 3]
-            rays_depth = np.transpose(rays_depth, [0,2,3,1,4]) # [N, H, W, ro+rd+rgb, 3]
-            rays_depth = np.stack([rays_depth[i] for i in i_train], 0) # train depth images only
-            rays_depth = np.reshape(rays_depth, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
-            rays_depth = rays_depth.astype(np.float32)
-            np.random.shuffle(rays_depth)
+            # TODO: These need to be shuffled the same way as rays_rgb
+            assert False, "depths with batching is not implemented yet"
+            # rays_depth = np.concatenate([rays, depth_images[:,None]], 1) # [N, ro+rd+rgb, H, W, 3]
+            # rays_depth = np.transpose(rays_depth, [0,2,3,1,4]) # [N, H, W, ro+rd+rgb, 3]
+            # rays_depth = np.stack([rays_depth[i] for i in i_train], 0) # train depth images only
+            # rays_depth = np.reshape(rays_depth, [-1,3,3]) # [(N-1)*H*W, ro+rd+rgb, 3]
+            # rays_depth = rays_depth.astype(np.float32)
+            # np.random.shuffle(rays_depth)
 
         logger.info('done')
         i_batch = 0
@@ -260,7 +259,9 @@ def main(cfg: HydraConfig = None):
     if use_batching:
         rays_rgb = torch.Tensor(rays_rgb).to(cfg.device)
     if cfg.nerf.training.use_depths:
-        depth_images = torch.Tensor(depth_images).to(cfg.device)
+        depth_vals = torch.Tensor(depth_vals).to(cfg.device)
+        disp_images = torch.Tensor(disp_images).to(cfg.device)
+        # TODO: verify this is correct when moving to batching with depth
         if use_batching:
             rays_depth = torch.Tensor(rays_depth).to(cfg.device)
 
@@ -285,9 +286,11 @@ def main(cfg: HydraConfig = None):
             batch = torch.transpose(batch, 0, 1)
             batch_rays, target_s = batch[:2], batch[2]
             if cfg.nerf.training.use_depths:
-                batch_depth = rays_depth[i_batch:i_batch+N_rand]
-                batch_depth = torch.transpose(batch_depth, 0, 1)
-                batch_rays_depth, target_depth_s = batch_depth[:2], batch_depth[2]
+                # TODO: I don't use batch_rays_depth at all, but we need to look at the random thing happening here.
+                assert False, "depths with batching is not implemented yet"
+                # batch_depth = rays_depth[i_batch:i_batch+N_rand]
+                # batch_depth = torch.transpose(batch_depth, 0, 1)
+                # batch_rays_depth, target_depth_s = batch_depth[:2], batch_depth[2]
 
             i_batch += N_rand
             if i_batch >= rays_rgb.shape[0]:
@@ -303,8 +306,10 @@ def main(cfg: HydraConfig = None):
             target = torch.Tensor(target).to(cfg.device)
             pose = poses[img_i, :3,:4]
             if cfg.nerf.training.use_depths:
-                target_depth = depth_images[img_i]
-                target_depth = torch.Tensor(target_depth).to(cfg.device)
+                target_depth_vals = depth_vals[:, img_i]  # (3, H, W)
+                target_depth_vals = torch.Tensor(target_depth_vals).to(cfg.device)
+                # target_disp = disp_images[img_i]
+                # target_disp = torch.Tensor(target_disp).to(cfg.device)
 
             if N_rand is not None:
                 rays_o, rays_d = get_rays(H, W, K, torch.Tensor(pose))  # (H, W, 3), (H, W, 3)
@@ -327,10 +332,15 @@ def main(cfg: HydraConfig = None):
                 select_coords = coords[select_inds].long()  # (N_rand, 2)
                 rays_o = rays_o[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
                 rays_d = rays_d[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
-                batch_rays = torch.stack([rays_o, rays_d], 0)
+                batch_rays = torch.stack([rays_o, rays_d], 0)  # (2, N_rand, 3)
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
                 if cfg.nerf.training.use_depths:
-                    target_depth_s = target_depth[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 1)
+                    target_disp = target_depth_vals[0]  # (H, W)
+                    target_depth = target_depth_vals[1]  # (H, W)
+                    target_depth_wt = target_depth_vals[2]  # (H, W)
+                    target_disp_s = target_disp[select_coords[:, 0], select_coords[:, 1]]  # (N_rand,)
+                    target_depth_s = target_depth[select_coords[:, 0], select_coords[:, 1]]  # (N_rand,)
+                    target_depth_wt_s = target_depth_wt[select_coords[:, 0], select_coords[:, 1]]  # (N_rand,)
 
         #####  Core optimization loop  #####
         rgb, disp, acc, depth, extras = integrator.render(H, W, K, chunk=cfg.nerf.training.chunk, rays=batch_rays,
@@ -343,9 +353,26 @@ def main(cfg: HydraConfig = None):
 
         trans = extras['raw'][...,-1]
         if cfg.nerf.training.use_depths:
-            disp = disp[..., None]  # (N_rand, 1)
-            depth_loss = torch.mean((disp - target_depth_s) ** 2)
+            # disp = disp[..., None]  # (N_rand, 1)
+            # depth = depth[..., None]  # (N_rand, 1)
+            disp = disp.nan_to_num()
+            disp = torch.clip(disp,0,1)
+            target_disp_s = target_disp_s.nan_to_num()
+            target_disp_s = torch.clip(target_disp_s,0,1)
+            assert disp.max() <= 1.0 and disp.min() >= 0, f"disp should be normalized to [0, 1] but got {disp.max()} and {disp.min()}"
+            assert not torch.any(torch.isnan(disp)), f"disp should not contain nan but got {torch.isnan(disp).sum()} nans"
+            assert not torch.any(torch.isnan(target_disp_s)), f"target_disp_s should not contain nan but got {torch.isnan(target_disp_s).sum()} nans"
+            assert not torch.any(torch.isinf(disp)), f"disp should not contain inf but got {torch.isinf(disp).sum()} infs"
+            assert not torch.any(torch.isinf(target_disp_s)), f"target_disp_s should not contain inf but got {torch.isinf(target_disp_s).sum()} infs"
+            assert target_disp_s.max() <= 1.0 and target_disp_s.min() >= 0, "target_disp_s should be normalized to [0, 1] but got {target_disp_s.max()} and {target_disp_s.min()}"
+
+            depth_loss = torch.mean(((disp - target_disp_s) ** 2) * target_depth_wt_s)
+            assert not torch.isnan(depth_loss), f"depth_loss should not contain nan but got {depth_loss}"
+            assert not torch.isinf(depth_loss), f"depth_loss should not contain inf but got {depth_loss}"
+
+            # depth_loss = torch.mean((depth - target_depth_s) ** 2)
             loss = img_loss + cfg.nerf.training.depth_lambda * depth_loss
+            assert not torch.isnan(loss), f"loss should not contain nan but got {loss}. img_loss: {img_loss}, depth_loss: {depth_loss}, cfg.nerf.training.depth_lambda: {cfg.nerf.training.depth_lambda}"
         else:
             loss = img_loss
         psnr = mse2psnr(img_loss)
