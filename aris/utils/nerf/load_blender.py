@@ -127,16 +127,17 @@ def load_blender_data(basedir, half_res=False, testskip=1, use_depths=False):
             disp_imgs = disp_imgs_half_res
             disp_wts = disp_wts_half_res
 
-    if not use_depths:
-        disp_imgs = None
-        disp_wts = None
-        depth_imgs = None
-    else:
+    if use_depths:
         # disp_imgs = np.expand_dims(disp_imgs, axis=-1)  # (n_imgs, H, W, 1)
+        disp_imgs = disp_imgs / 2
         disp_imgs = np.clip(disp_imgs,1e-10,1) # diparity images should be between 0 and 1. Here we use 1e-10 instead of 0. This makes the nan_to_num below redundant.
         disp_wts = np.clip(disp_wts, 0, 1)
 
-        depth_imgs = 1 / disp_imgs
-        depth_imgs = np.nan_to_num(depth_imgs)  # Replace inf with large numbers
+        depth_imgs = 1 / disp_imgs.clip(1e-10)
+        # depth_imgs = np.nan_to_num(depth_imgs)  # Replace inf with large numbers
+    else:
+        disp_imgs = None
+        disp_wts = None
+        depth_imgs = None
 
     return imgs, poses, render_poses, [H, W, focal], i_split, disp_imgs, depth_imgs, disp_wts
