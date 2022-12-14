@@ -1,8 +1,10 @@
 defaults:
-  - _base_llff
+  - _base_blendr
   - _self_
 
 experiment: hotdog
 
 dataset:
-  datadir: ./data/nerf_llff_data/hotdog
+  datadir: ./data/nerf_synthetic/hotdog
+  blendr:
+    half_res: true

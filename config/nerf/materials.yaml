@@ -1,8 +1,8 @@
 defaults:
-  - _base_llff
+  - _base_blendr
   - _self_
 
 experiment: materials
 
 dataset:
-  datadir: ./data/nerf_llff_data/materials
+  datadir: ./data/nerf_synthetic/materials
